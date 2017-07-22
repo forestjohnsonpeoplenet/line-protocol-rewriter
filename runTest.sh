@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export LPRW_CONFIG_FILE=config.test.json
+
 ./line-protocol-rewriter &
 line_protocol_rewriter_pid=$!
 
@@ -28,7 +30,7 @@ echo '
 
 '
 
-diff test-result.txt line-protocol.txt
+diff test-result.txt line-protocol-expected.txt
 
 echo '
 
@@ -36,7 +38,7 @@ echo '
 
 '
 
-expected=$(cat line-protocol.txt)
+expected=$(cat line-protocol-expected.txt)
 actual=$(cat test-result.txt)
 
 rm -f test-result.txt

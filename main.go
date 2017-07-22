@@ -629,10 +629,15 @@ func writePoint(writer *bytes.Buffer, point *PointModel, hasMore bool) {
 	writer.WriteByte(spaceByte)
 	fieldsCount := len(point.Fields)
 	fieldIndex := 0
-	for k, v := range point.Fields {
-		writer.Write([]byte(k))
+	fieldKeys := make([][]byte, 0, len(point.Tags))
+	for k := range point.Fields {
+		fieldKeys = append(fieldKeys, []byte(k))
+	}
+	sortedFieldKeys := SortByteSlices(fieldKeys)
+	for _, k := range sortedFieldKeys {
+		writer.Write(k)
 		writer.WriteByte(equalsByte)
-		writer.Write([]byte(*v))
+		writer.Write([]byte(*point.Fields[string(k)]))
 		fieldIndex++
 		if fieldIndex < fieldsCount {
 			writer.WriteByte(commaByte)
