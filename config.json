@@ -4,15 +4,79 @@
   "BackendScheme": "http",
   "Rewriters": [
     {
-      "Name": "test",
-      "MeasurementNameMustMatch": "dance_floor_metric",
-      "AddFields": [
+      "Name": "RemoveMetricNameTag",
+      "MustHaveTagKeys": ["metricName"],
+      "RemoveTags":["metricName"]
+    },
+    {
+      "Name": "RemoveRedundantAppName",
+      "MustHaveTagKeys": ["name", "app"],
+      "RemoveTags":["name"]
+    },
+    {
+      "Name": "RemoveRedundantHostname",
+      "MustHaveTagKeys": ["host", "hostname"],
+      "RemoveTags":["hostname"]
+    },
+    {
+      "Name": "ratpack_http_server",
+      "MeasurementNameMustMatch": "(.*)\\.(get|options|put|post|delete)-requests",
+      "SetMeasurementName": "ratpack_http_server",
+      "AddTags": [
         {
-          "Key": "partition",
-          "ValueTemplate": "{{ index .Tags \"partition\" }}"
+          "Key": "method",
+          "ValueTemplate": "{{ index .MeasurementNameMatches 2 }}"
+        },
+        {
+          "Key": "path",
+          "ValueTemplate": "{{ index .MeasurementNameMatches 1 }}"
         }
       ],
-      "RemoveTags":["partition"]
+      "AddFields": [
+        {
+          "Key": "latency-50th-percentile",
+          "ValueTemplate": "{{ index .Fields p50 }}"
+        },
+        {
+          "Key": "latency-75th-percentile",
+          "ValueTemplate": "{{ index .Fields p75 }}"
+        },
+        {
+          "Key": "latency-99th-percentile",
+          "ValueTemplate": "{{ index .Fields p99 }}"
+        }
+      ],
+      "RemoveFields":["m1_rate","m5_rate","m15_rate","mean_rate","max","min","stddev","p50","p75","p98","p99","p999"]
+    },
+    {
+      "Name": "ratpack_http_server_blocking",
+      "MeasurementNameMustMatch": "(.*)\\.(get|options|put|post|delete)-blocking",
+      "SetMeasurementName": "ratpack_http_server_blocking",
+      "AddTags": [
+        {
+          "Key": "method",
+          "ValueTemplate": "{{ index .MeasurementNameMatches 2 }}"
+        },
+        {
+          "Key": "path",
+          "ValueTemplate": "{{ index .MeasurementNameMatches 1 }}"
+        }
+      ],
+      "AddFields": [
+        {
+          "Key": "50th-percentile",
+          "ValueTemplate": "{{ index .Fields p50 }}"
+        },
+        {
+          "Key": "75th-percentile",
+          "ValueTemplate": "{{ index .Fields p75 }}"
+        },
+        {
+          "Key": "99th-percentile",
+          "ValueTemplate": "{{ index .Fields p99 }}"
+        }
+      ],
+      "RemoveFields":["m1_rate","m5_rate","m15_rate","mean_rate","max","min","stddev","p50","p75","p98","p99","p999"]
     }
   ],
   "SelfMetrics": {

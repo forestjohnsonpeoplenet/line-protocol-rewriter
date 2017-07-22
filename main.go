@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httputil"
+	"os"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -41,9 +42,10 @@ type LineProtocolRewriter struct {
 	Name                                string
 	MeasurementNameMustMatch            string
 	MeasurementNameMustNotMatch         string
-	MustHaveTagKey                      string
+	MustHaveTagKeys                     []string
 	MeasurementNameMustMatchCompiled    *regexp.Regexp
 	MeasurementNameMustNotMatchCompiled *regexp.Regexp
+	SetMeasurementName                  string
 	AddFields                           []*Selector
 	AddTags                             []*Selector
 	RemoveFields                        []string
@@ -118,7 +120,13 @@ func main() {
 	droppedPointsMetricChannel = make(chan int, metricsChannelSize)
 	lastMetricSent = time.Now()
 
-	configBytes, err := ioutil.ReadFile("config.json")
+	configFileName := "config.json"
+
+	if os.Getenv("LPRW_CONFIG_FILE") != "" {
+		configFileName = os.Getenv("LPRW_CONFIG_FILE")
+	}
+
+	configBytes, err := ioutil.ReadFile(configFileName)
 	if err != nil {
 		panic(err)
 	}
@@ -233,9 +241,12 @@ func modifyBody(body io.ReadCloser, contentLength int64) (io.ReadCloser, int, in
 
 func mutatePointModel(point *PointModel) {
 	for _, rewriter := range config.Rewriters {
-		if rewriter.MustHaveTagKey != "" && point.Tags[rewriter.MustHaveTagKey] == nil {
-			continue
+		for _, mustHaveTagKey := range rewriter.MustHaveTagKeys {
+			if point.Tags[mustHaveTagKey] == nil {
+				continue
+			}
 		}
+
 		if rewriter.MeasurementNameMustMatchCompiled != nil {
 			matches := rewriter.MeasurementNameMustMatchCompiled.FindStringSubmatch(point.MeasurementName)
 			if matches == nil {
@@ -292,6 +303,10 @@ func mutatePointModel(point *PointModel) {
 		}
 		for _, tag := range rewriter.RemoveTags {
 			delete(point.Tags, tag)
+		}
+
+		if rewriter.SetMeasurementName != "" {
+			point.MeasurementName = rewriter.SetMeasurementName
 		}
 
 		if len(rewriter.AddFields) > 0 {
@@ -441,6 +456,7 @@ type metricsCollectingTransport struct {
 func (this *metricsCollectingTransport) RoundTrip(request *http.Request) (response *http.Response, err error) {
 
 	pointCount, err := strconv.Atoi(request.Header.Get(pointCountKey))
+	request.Header.Del(pointCountKey)
 	outgoingPointsMetricChannel <- pointCount
 
 	response, err = this.UnderlyingTransport.RoundTrip(request)
