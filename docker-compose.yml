@@ -6,7 +6,8 @@ services:
     image: sequentialread/line-protocol-rewriter:0.1.0
     environment:
       GOMAXPROCS: 1
-      LPRW_BACKENDHOSTPORT: influxdb:8086
+      LPRW_BACKENDHOST: influxdb
+      LPRW_BACKENDPORT: 8086
     external_links:
     - influxdb/influxdb:influxdb
     labels:

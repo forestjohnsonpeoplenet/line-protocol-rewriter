@@ -1,6 +1,7 @@
 {
   "ListenPort": 8086,
-  "BackendHostPort": "localhost:5000",
+  "BackendHost": "localhost",
+  "BackendPort": 5000,
   "BackendScheme": "http",
   "Rewriters": [
     {
@@ -35,18 +36,18 @@
       "AddFields": [
         {
           "Key": "latency-50th-percentile",
-          "ValueTemplate": "{{ index .Fields p50 }}"
+          "ValueTemplate": "{{ index .Fields \"p50\" }}"
         },
         {
           "Key": "latency-75th-percentile",
-          "ValueTemplate": "{{ index .Fields p75 }}"
+          "ValueTemplate": "{{ index .Fields \"p75\" }}"
         },
         {
           "Key": "latency-99th-percentile",
-          "ValueTemplate": "{{ index .Fields p99 }}"
+          "ValueTemplate": "{{ index .Fields \"p99\" }}"
         }
       ],
-      "RemoveFields":["m1_rate","m5_rate","m15_rate","mean_rate","max","min","stddev","p50","p75","p98","p99","p999"]
+      "RemoveFields":["m1_rate","m5_rate","m15_rate","mean_rate","max","min","mean","stddev","p50","p75","p95","p98","p99","p999"]
     },
     {
       "Name": "ratpack_http_server_blocking",
@@ -65,18 +66,18 @@
       "AddFields": [
         {
           "Key": "50th-percentile",
-          "ValueTemplate": "{{ index .Fields p50 }}"
+          "ValueTemplate": "{{ index .Fields \"p50\" }}"
         },
         {
           "Key": "75th-percentile",
-          "ValueTemplate": "{{ index .Fields p75 }}"
+          "ValueTemplate": "{{ index .Fields \"p75\" }}"
         },
         {
           "Key": "99th-percentile",
-          "ValueTemplate": "{{ index .Fields p99 }}"
+          "ValueTemplate": "{{ index .Fields \"p99\" }}"
         }
       ],
-      "RemoveFields":["m1_rate","m5_rate","m15_rate","mean_rate","max","min","stddev","p50","p75","p98","p99","p999"]
+      "RemoveFields":["m1_rate","m5_rate","m15_rate","mean_rate","max","min","mean","stddev","p50","p75","p95","p98","p99","p999"]
     }
   ],
   "SelfMetrics": {

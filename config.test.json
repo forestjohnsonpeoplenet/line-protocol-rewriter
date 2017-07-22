@@ -1,6 +1,7 @@
 {
   "ListenPort": 8086,
-  "BackendHostPort": "localhost:5000",
+  "BackendHost": "localhost",
+  "BackendPort": 5000,
   "BackendScheme": "http",
   "Rewriters": [
     {

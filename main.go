@@ -3,10 +3,13 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -20,11 +23,12 @@ import (
 )
 
 type Config struct {
-	ListenPort      int
-	BackendHostPort string
-	BackendScheme   string
-	Rewriters       []*LineProtocolRewriter
-	SelfMetrics     *SelfMetricsConfig
+	ListenPort    int
+	BackendHost   string
+	BackendPort   int
+	BackendScheme string
+	Rewriters     []*LineProtocolRewriter
+	SelfMetrics   *SelfMetricsConfig
 }
 
 type SelfMetricsConfig struct {
@@ -92,9 +96,11 @@ const maximumStringLengthBytes = 512
 const selfMetricBufferSizeBytes = 8192
 const metricsChannelSize = 10000
 const metricsChannelFlushIntervalString = "10ms"
+const dnsCacheTTLString = "5s"
 const pointCountKey = "Point-Count"
 
 var metricsChannelFlushInterval time.Duration
+var dnsCacheTTL time.Duration
 var incomingPointsMetricChannel chan int
 var outgoingPointsMetricChannel chan int
 var droppedPointsMetricChannel chan int
@@ -108,10 +114,14 @@ var lastMetricSent time.Time
 var config *Config
 
 func main() {
-	fmt.Println("Hello from Golang")
+	fmt.Println("Hello!")
 
 	var err error
 	metricsChannelFlushInterval, err = time.ParseDuration(metricsChannelFlushIntervalString)
+	if err != nil {
+		panic(err)
+	}
+	dnsCacheTTL, err = time.ParseDuration(dnsCacheTTLString)
 	if err != nil {
 		panic(err)
 	}
@@ -138,6 +148,10 @@ func main() {
 	}
 
 	influxStyleEnvOverride.ApplyInfluxStyleEnvOverrides("LPRW", reflect.ValueOf(config))
+
+	if config.BackendHost == "" || config.BackendPort == 0 || config.BackendScheme == "" {
+		panic(errors.New("BackendHost, BackendPort, and BackendScheme are all required configs"))
+	}
 
 	for i, rewriter := range config.Rewriters {
 		if rewriter.MeasurementNameMustMatch != "" {
@@ -177,10 +191,23 @@ func main() {
 		config.SelfMetrics.FlushIntervalParsed = interval
 	}
 
+	var lastDnsResolution time.Time
+	var ipAddresses []net.IP
+
 	proxy := &httputil.ReverseProxy{
 		Director: func(request *http.Request) {
-			request.Host = config.BackendHostPort
-			request.URL.Host = config.BackendHostPort
+
+			if time.Since(lastDnsResolution) > dnsCacheTTL {
+				ipAddresses, err = net.LookupIP(config.BackendHost)
+				if err != nil {
+					fmt.Printf("DNS resolution of config.BackendHost (%s) failed!!  error: %s", config.BackendHost, err)
+				} else {
+					ipString := fmt.Sprintf("%s:%d", ipAddresses[rand.Intn(len(ipAddresses))].String(), config.BackendPort)
+					request.Host = ipString
+					request.URL.Host = ipString
+				}
+			}
+
 			request.URL.Scheme = config.BackendScheme
 			newBody, newContentLength, pointCoint := modifyBody(request.Body, request.ContentLength)
 			request.Body = newBody
@@ -199,7 +226,7 @@ func main() {
 	http.HandleFunc("/", func(responseWriter http.ResponseWriter, request *http.Request) {
 		proxy.ServeHTTP(responseWriter, request)
 	})
-	log.Println(fmt.Sprintf("im about to try to listen on port %d and forward to %s://%s!", config.ListenPort, config.BackendScheme, config.BackendHostPort))
+	log.Println(fmt.Sprintf("im about to try to listen on port %d and forward to %s://%s:%d!", config.ListenPort, config.BackendScheme, config.BackendHost, config.BackendPort))
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.ListenPort), nil))
 }
 
@@ -435,7 +462,7 @@ func aggregateAndSendMetrics() {
 		go func() {
 			buffer := bytes.NewBuffer(make([]byte, 0, selfMetricBufferSizeBytes))
 			writePoint(buffer, &selfMetricPoint, false)
-			response, err := http.Post(fmt.Sprintf("%s://%s/write?db=%s", config.BackendScheme, config.BackendHostPort, config.SelfMetrics.Database), "text/plain", buffer)
+			response, err := http.Post(fmt.Sprintf("%s://%s:%d/write?db=%s", config.BackendScheme, config.BackendHost, config.BackendPort, config.SelfMetrics.Database), "text/plain", buffer)
 			if err != nil {
 				fmt.Printf("Error attempting to report self metrics: %s", err)
 			} else if response.StatusCode < 200 || response.StatusCode >= 300 {
