@@ -5,7 +5,9 @@ if [ -z $1 ]; then
   exit 1
 fi
 
-/usr/local/go/bin/go build -o line-protocol-rewriter main.go sortByteSlices.go \
+touch line-protocol-rewriter \
+ && rm line-protocol-rewriter \
+ && /usr/local/go/bin/go build -o line-protocol-rewriter main.go sortByteSlices.go \
  && ./runTest.sh \
  && docker build -t sequentialread/line-protocol-rewriter:$1 . \
  && docker push sequentialread/line-protocol-rewriter:$1
