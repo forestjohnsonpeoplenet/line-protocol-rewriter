@@ -268,10 +268,14 @@ func modifyBody(body io.ReadCloser, contentLength int64) (io.ReadCloser, int, in
 
 func mutatePointModel(point *PointModel) {
 	for _, rewriter := range config.Rewriters {
+		missingATagKey := false
 		for _, mustHaveTagKey := range rewriter.MustHaveTagKeys {
 			if point.Tags[mustHaveTagKey] == nil {
-				continue
+				missingATagKey = true
 			}
+		}
+		if missingATagKey {
+			continue
 		}
 
 		if rewriter.MeasurementNameMustMatchCompiled != nil {

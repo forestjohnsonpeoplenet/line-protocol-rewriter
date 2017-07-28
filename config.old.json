@@ -10,6 +10,16 @@
       "RemoveTags":["metricName"]
     },
     {
+      "Name": "RemoveRedundantAppName",
+      "MustHaveTagKeys": ["name", "app"],
+      "RemoveTags":["name"]
+    },
+    {
+      "Name": "RemoveRedundantHostname",
+      "MustHaveTagKeys": ["host", "hostname"],
+      "RemoveTags":["hostname"]
+    },
+    {
       "Name": "ratpack_http_server",
       "MeasurementNameMustMatch": "(.*)\\.(get|options|put|post|delete)-requests",
       "SetMeasurementName": "ratpack_http_server",
